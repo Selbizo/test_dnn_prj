@@ -104,57 +104,6 @@ void yoloPostProcessing(std::vector<Mat>& outs,
     }
 }
 
-// int main() {
-//     // Load model
-//     std::string weightPath = "/home/selbizo/CV/test_dnn_prj/src/yolov8n.onnx";
-//     Net net = readNet(weightPath);
-//     net.setPreferableBackend(DNN_BACKEND_OPENCV);
-//     net.setPreferableTarget(DNN_TARGET_CPU);
-    
-//     // Load classes
-//     getClasses("/home/selbizo/CV/test_dnn_prj/src/object_detection_classes_yolo.txt");
-    
-//     // Read image
-//     Mat img = imread("/home/selbizo/CV/test_dnn_prj/src/image.jpg");
-    
-//     // Preprocess
-//     Mat blob;
-//     Size size(640, 640);
-//     Scalar mean(0, 0, 0);
-//     Scalar scale(1.0/255.0, 1.0/255.0, 1.0/255.0);
-//     blobFromImage(img, blob, 1.0/255.0, size, mean, true, false);
-    
-//     // Forward pass
-//     net.setInput(blob);
-//     std::vector<Mat> outs;
-//     net.forward(outs, net.getUnconnectedOutLayersNames());
-    
-//     // Postprocess
-//     std::vector<int> keep_classIds;
-//     std::vector<float> keep_confidences;
-//     std::vector<Rect2d> keep_boxes;
-//     yoloPostProcessing(outs, keep_classIds, keep_confidences, keep_boxes,
-//                       0.5, 0.4, "yolov8", 80);
-    
-//     // Draw results
-//     std::vector<Rect> boxes;
-//     for (auto box : keep_boxes) {
-//         boxes.push_back(Rect(cvFloor(box.x), cvFloor(box.y), 
-//                            cvFloor(box.width - box.x), cvFloor(box.height - box.y)));
-//     }
-    
-//     for (size_t idx = 0; idx < boxes.size(); ++idx) {
-//         Rect box = boxes[idx];
-//         drawPrediction(keep_classIds[idx], keep_confidences[idx], 
-//                      box.x, box.y, box.width + box.x, box.height + box.y, img);
-//     }
-    
-//     imshow("YOLO Object Detection", img);
-//     waitKey(0);
-    
-//     return 0;
-// }
-
 int main() {
     // Load model
     std::string weightPath = "/home/selbizo/CV/test_dnn_prj/src/yolov8n.onnx";
@@ -172,46 +121,66 @@ int main() {
     }
     
     Mat img;
+    int frame_count = 0;
+    std::vector<Rect2d> prev_boxes;
+    std::vector<int> prev_classIds;
+    std::vector<float> prev_confidences;
+
     while (true) {
         // Read image from webcam
         cap >> img;
         if (img.empty()) break;
-        
+
         // Preprocess
         Mat blob;
         Size size(640, 640);
         Scalar mean(0, 0, 0);
         Scalar scale(1.0/255.0, 1.0/255.0, 1.0/255.0);
         blobFromImage(img, blob, 1.0/255.0, size, mean, true, false);
-        
-        // Forward pass
-        net.setInput(blob);
-        std::vector<Mat> outs;
-        net.forward(outs, net.getUnconnectedOutLayersNames());
-        
-        // Postprocess
+
+        bool run_detection = (frame_count % 50 == 0);
+
         std::vector<int> keep_classIds;
         std::vector<float> keep_confidences;
         std::vector<Rect2d> keep_boxes;
-        yoloPostProcessing(outs, keep_classIds, keep_confidences, keep_boxes,
-                          0.5, 0.4, "yolov8", 80);
-        
+
+        if (run_detection) {
+            // Forward pass and Postprocess
+            net.setInput(blob);
+            std::vector<Mat> outs;
+            net.forward(outs, net.getUnconnectedOutLayersNames());
+
+            yoloPostProcessing(outs, keep_classIds, keep_confidences, keep_boxes,
+                              0.3, 0.2, "yolov8", 80);
+
+            // Update previous results for drawing the current frame
+            prev_boxes = keep_boxes;
+            prev_classIds = keep_classIds;
+            prev_confidences = keep_confidences;
+        } else {
+            // Use previous results for drawing (frame skipping)
+            keep_boxes = prev_boxes;
+            keep_classIds = prev_classIds;
+            keep_confidences = prev_confidences;
+        }
+
         // Draw results
         std::vector<Rect> boxes;
         for (auto box : keep_boxes) {
             boxes.push_back(Rect(cvFloor(box.x), cvFloor(box.y), 
                                cvFloor(box.width - box.x), cvFloor(box.height - box.y)));
         }
-        
+
         for (size_t idx = 0; idx < boxes.size(); ++idx) {
             Rect box = boxes[idx];
             drawPrediction(keep_classIds[idx], keep_confidences[idx], 
                          box.x, box.y, box.width + box.x, box.height + box.y, img);
         }
-        
+
         imshow("YOLO Object Detection", img);
+        frame_count++;
         if (waitKey(1) == 'q' || waitKey(1) == 27) break;
     }
-    
+
     return 0;
 }
