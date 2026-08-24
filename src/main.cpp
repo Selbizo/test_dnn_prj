@@ -105,13 +105,51 @@ void yoloPostProcessing(std::vector<Mat>& outs,
     }
 }
 
-int main() {
+#ifdef HAVE_OPENCV_DNN_AIPU
+#define USE_NPU 1
+#else
+#define USE_NPU 0
+#endif
+
+int main(int argc, char* argv[]) {
+    bool use_npu = false;
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "--npu" || arg == "-n") {
+            use_npu = true;
+        } else if (arg == "--cpu" || arg == "-c") {
+            use_npu = false;
+        } else if (arg == "--help" || arg == "-h") {
+            std::cout << "Usage: facedetection [--npu | --cpu]\n"
+                      << "  --npu, -n   Run on NPU (AIPU) backend\n"
+                      << "  --cpu, -c   Run on CPU backend (default)\n"
+                      << "  --help, -h  Show this help\n";
+            return 0;
+        }
+    }
+
     // Load model
     std::filesystem::path exeDir = std::filesystem::canonical("/proc/self/exe").parent_path();
     std::string weightPath = (exeDir / "../../src/yolov8n.onnx").string();
     Net net = readNet(weightPath);
+
+#if USE_NPU
+    if (use_npu) {
+        net.setPreferableBackend(DNN_BACKEND_AIPU);
+        net.setPreferableTarget(DNN_TARGET_AIPU);
+        std::cout << "[INFO] Using NPU (AIPU) backend\n";
+    } else {
+        net.setPreferableBackend(DNN_BACKEND_OPENCV);
+        net.setPreferableTarget(DNN_TARGET_CPU);
+        std::cout << "[INFO] Using CPU backend\n";
+    }
+#else
+    // AIPU not available in this OpenCV build — always use CPU
+    (void)use_npu;  // unused flag on non-AIPU platforms
     net.setPreferableBackend(DNN_BACKEND_OPENCV);
     net.setPreferableTarget(DNN_TARGET_CPU);
+    std::cout << "[INFO] AIPU not available, using CPU backend\n";
+#endif
 
     // Load classes
     std::string classPath = (exeDir / "../../src/object_detection_classes_yolo.txt").string();
