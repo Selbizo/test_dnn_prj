@@ -3,6 +3,7 @@
 #include <opencv2/highgui.hpp>
 #include <fstream>
 #include <iostream>
+#include <filesystem>
 
 using namespace cv;
 using namespace cv::dnn;
@@ -106,13 +107,15 @@ void yoloPostProcessing(std::vector<Mat>& outs,
 
 int main() {
     // Load model
-    std::string weightPath = "/home/selbizo/CV/test_dnn_prj/src/yolov8n.onnx";
+    std::filesystem::path exeDir = std::filesystem::canonical("/proc/self/exe").parent_path();
+    std::string weightPath = (exeDir / "../../src/yolov8n.onnx").string();
     Net net = readNet(weightPath);
     net.setPreferableBackend(DNN_BACKEND_OPENCV);
     net.setPreferableTarget(DNN_TARGET_CPU);
-    
+
     // Load classes
-    getClasses("/home/selbizo/CV/test_dnn_prj/src/object_detection_classes_yolo.txt");
+    std::string classPath = (exeDir / "../../src/object_detection_classes_yolo.txt").string();
+    getClasses(classPath);
     
     // Open webcam
     VideoCapture cap(0);
