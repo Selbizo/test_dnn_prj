@@ -1,19 +1,22 @@
 # cmake_minimum_required(VERSION 3.5)
 # set(CMAKE_CXX_STANDARD 17)
 
-project(FaceDetection)
+project(DNN_TEST)
 
-option(USE_CUDA "Using CUDA to accelerate" ON)
+option(USE_CUDA "Using CUDA to accelerate" OFF)
+option(USE_NPU "Using AIPU/NPU backend for DNN" ON)
 
 if(USE_CUDA)
     add_definitions(-DUSE_CUDA)
-endif(USE_CUDA)
+endif()
+
+if(USE_NPU)
+    add_definitions(-DUSE_NPU)
+endif()
 
 find_package(OpenCV REQUIRED)
-find_package(CUDA REQUIRED)
 
 include_directories(${OpenCV_INCLUDE_DIRS})
-include_directories(${DNN_INCLUDE_DIRS})
 
 # Добавление исполняемого файла
 add_executable(facedetection main.cpp)
